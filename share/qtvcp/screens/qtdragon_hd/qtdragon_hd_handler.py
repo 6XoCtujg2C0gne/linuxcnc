@@ -667,7 +667,7 @@ class HandlerClass:
                             receiver.keyPressEvent(event)
                             event.accept()
                         return True
-                if is_pressed:
+                elif is_pressed:
                     receiver.keyPressEvent(event)
                     event.accept()
                     return True
