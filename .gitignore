@@ -55,4 +55,6 @@ position.txt
 # Ignore stamp files
 *.*-stamp
 # Ignore VSCode settings
-.vscode/settings.json
+#.vscode/settings.json
+.vscode/*
+.vs/*
