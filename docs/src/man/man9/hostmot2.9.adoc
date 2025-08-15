@@ -95,58 +95,37 @@ Best to try loading it and see what the detection order is.
 
 The valid entries in the format string are:
 
-**[firmware=**__F__**]**
+* **[firmware=**__F__**]**
+* **[num_dplls=**__N__**]**
+* **[num_encoders=**__N__**]**
+* **[ssi_chan_**__N__**=**__abc%nq__**]**
+* **[biss_chan_**__N__**=**__abc%nq__**]**
+* **[fanuc_chan_**__N__**=**__abc%nq__**]**
+* **[num_inmux=**__N__**]**
+* **[num_inms=**__N__**]**
+* **[num_resolvers=**__N__**]**
+* **[num_pwmgens=**__N__**]**
+* **[num_3pwmgens=**__N__**]**
+* **[num_oneshots=**__N__**]**
+* **[num_periodms=**__N__**]**
+* **[num_rcpwmgens=**__N__**]**
+* **[num_stepgens=**__N__**]**
+* **[stepgen_width=**__N__**]**
+* **[sserial_port_0=**00000000**]**
+* **[num_bspis=**__N__**]**
+* **[num_leds=**__N__**]**
+* **[num_ssrs=**__N__**]**
+* **[num_outms=**__N__**]**
+* **[num_xy2mods=**__N__**]**
 
-**[num_dplls=**__N__**]**
-
-**[num_encoders=**__N__**]**
-
-**[ssi_chan_**__N__**=**__abc%nq__**]**
-
-**[biss_chan_**__N__**=**__abc%nq__**]**
-
-**[fanuc_chan_**__N__**=**__abc%nq__**]**
-
-**[num_inmux=**__N__**]**
-
-**[num_inms=**__N__**]**
-
-**[num_resolvers=**__N__**]**
-
-**[num_pwmgens=**__N__**]**
-
-**[num_3pwmgens=**__N__**]**
-
-**[num_oneshots=**__N__**]**
-
-**[num_periodms=**__N__**]**
-
-**[num_rcpwmgens=**__N__**]**
-
-**[num_stepgens=**__N__**]**
-
-**[stepgen_width=**__N__**]**
-
-**[sserial_port_0=**00000000**]**
-
-**[num_bspis=**__N__**]**
-
-**[num_leds=**__N__**]**
-
-**[num_ssrs=**__N__**]**
-
-**[num_outms=**__N__**]**
-
-**[num_xy2mods=**__N__**]**
-
-**[enable_raw]**
+* **[enable_raw]**
 
 
 *firmware* [optional]::
  Load the firmware specified by _F_ into the FPGA on this board.
  If no "**firmware=**_F_" string is specified, the FPGA will not be
  re-programmed but may continue to run a previously downloaded firmware.
-
++
 The requested firmware _F_ is fetched by udev, which searches for the
 firmware in the system's firmware search path, usually /lib/firmware.
 _F_ typically has the form "hm2/<BoardType>/file.bit";
@@ -155,7 +134,7 @@ The hostmot2 firmware files are supplied by the hostmot2-firmware packages,
 available from https:://linuxcnc.org[linuxcnc.org] and can normally be installed
 by entering the command "sudo apt-get install hostmot2-firmware-5i23"
 to install the support files for the 5I23 for example.
-
++
 Newer FPGA cards come pre-programmed with firmware and no "firmware="
 string should be used with these cards. To change the firmware on these
 cards the "mesaflash" utility should be used. It is perfectly valid and
@@ -344,6 +323,8 @@ following pins and parameters:
 
 count (s32 out)::
  Number of encoder counts since the previous reset.
+count_64 (s64 out)::
+ Number of encoder counts since the previous reset (64 bit).
 position (float out)::
  Encoder position in position units (count / scale).
 position-interpolated (float out)::
@@ -364,20 +345,32 @@ reset (bit in)::
  not reset this pin to FALSE after resetting the count to 0, that is
  the user's job.
 index-enable (bit in/out)::
- When this pin is set to True, the count (and therefore also position)
- are reset to zero on the next Index (Phase-Z) pulse. At the same time,
- index-enable is reset to zero to indicate that the pulse has occurred.
+ When this pin is set to True, (and no-clear-on-index is false) 
+ the count (and therefore also position) are reset to zero on the next 
+ Index (Phase-Z) pulse. At the same time, index-enable is reset to zero
+  to indicate that the pulse has occurred.
+no-clear-on-index (bit in)::
+ When this pin is set to True, the count (and therefore also position) 
+ are NOT reset to zero on the next Index (Phase\-Z) pulse.
+ On an index event the latched count and position will be set to 
+ indicate the count and position where the index occured.
 probe-enable (bit in/out)::
  When this pin is set to True, the encoder count (and therefore also
  position) are latched on the the next probe active edge. At the same
  time, probe-enable is reset to zero to indicate that latch event has
- occurred.
+ occurred. (only present if supported by firmware)
 probe-invert (bit r/w)::
  If set to True, the rising edge of the probe input pin triggers the
  latch event (if probe-enable is True). If set to False, the falling
- edge triggers.
+ edge triggers. (only present if supported by firmware)
 rawcounts (s32 out)::
  Total number of encoder counts since the start, not adjusted for index or reset.
+rawcounts_64 (s64 out)::
+ Total number of encoder counts since the start, not adjusted for index or reset. (64 bit)
+count_latch (s32 out)::
+ Encoder count at latch event. (index or probe)
+count_latch_64 (s64 out)::
+ Encoder count at latch event. (index or probe) (64 bit)
 input-a, input-b, input-index (bit out)::
  Real time filtered values of A,B,Index encoder signals
 quad-error-enable (bit in)::
@@ -1123,8 +1116,8 @@ Typically, these would be written in the "comp".
 
 Pre-processing language: see https://linuxcnc.org/docs/html/hal/comp.html or man halcompile for further details.
 See mesa_7i65(9) and the source of mesa_7i65.comp for details of a typical sub-driver.
-See hm2_bspi_setup_chan(3hm2), hm2_bspi_write_chan(3hm2), hm2_tram_add_bspi_frame(3hm2), hm2_allocate_bspi_tram(3hm2),
-hm2_bspi_set_read_function(3hm2) and hm2_bspi_set_write_function(3hm2) for the exported functions.
+See hm2_bspi_setup_chan(3), hm2_bspi_write_chan(3), hm2_tram_add_bspi_frame(3), hm2_allocate_bspi_tram(3),
+hm2_bspi_set_read_function(3) and hm2_bspi_set_write_function(3) for the exported functions.
 
 The names of the available channels are printed to standard output
 during the driver loading process and take the form
@@ -1137,7 +1130,7 @@ read/write functions and a setup function to be utilised by user-written code.
 Typically this would be written in the "comp" pre-processing language:
 see https://linuxcnc.org/docs/html/hal/comp.html or man halcompile for further details.
 See mesa_uart(9) and the source of mesa_uart.comp for details of a typical sub-driver.
-See hm2_uart_setup_chan(3hm2), hm2_uart_send(3hm2), hm2_uart_read(3hm2) and hm2_uart_setup(3hm2).
+See hm2_uart_setup_chan(3), hm2_uart_send(3), hm2_uart_read(3) and hm2_uart_setup(3).
 
 The names of the available uart channels are printed to standard output
 during the driver loading process and take the form **hm2_**__<board name>__**.**__<board index>__**.uart.**__<index>__, e.g., `hm2_5i23.0.uart.0`.
@@ -1301,7 +1294,7 @@ invert-NN (bit in)::
  When invert-NN is set to 1, SSR output NN is closed when the out-NN
  pin is 0 and open when the out-NN pin is 1.
 
-== OutM Simple output module
+=== OutM Simple output module
 
 OutMs have names like
 "**hm2_**_<BoardType>_**.**_<BoardNum>_**.OutM.**_<Instance>_". _Instance_ is a
@@ -1321,7 +1314,7 @@ invert-NN (bit in)::
  When invert-NN is set to 1, OutM output NN is high when the out-NN
  pin is 0 and low when the out-NN pin is 1.
 
-== xy2mod
+=== xy2mod
 
 The xy2mod is a xy2-100 galvanometer interface. It supports 16 and 18
 bit data modes and includes parabolic interpolation to provide position

@@ -58,7 +58,7 @@ void Hal::freeSimulatedPin(void** pin)
     if (*pin != nullptr)
     {
         free(*pin);
-        pin = nullptr;
+        *pin = nullptr;
     }
 }
 // ----------------------------------------------------------------------
@@ -68,6 +68,7 @@ Hal::Hal(Profiles::HalRequestProfile halRequestProfile) :
     mStepMode(HandwheelStepmodes::Mode::MPG),
     mHalRequestProfile(halRequestProfile)
 {
+    (void)mStepMode;
 }
 // ----------------------------------------------------------------------
 Hal::~Hal()
@@ -220,7 +221,7 @@ Hal::~Hal()
     delete memory;
 }
 // ----------------------------------------------------------------------
-int Hal::newSimulatedHalPin(char* pin_name, void** ptr, int s)
+int Hal::newSimulatedHalPin(char* /*pin_name*/, void** ptr, int s)
 {
     *ptr = calloc(s, 1);
     assert(*ptr != nullptr);
@@ -574,11 +575,6 @@ void Hal::init(const MetaButtonCodes* metaButtons, const KeyCodes& keyCodes)
     mIsInitialized = true;
 }
 // ----------------------------------------------------------------------
-bool Hal::isInitialized()
-{
-    return mIsInitialized;
-}
-// ----------------------------------------------------------------------
 real_t Hal::getAxisXPosition(bool absolute) const
 {
     if (absolute)
@@ -645,7 +641,7 @@ void Hal::enableVerbose(bool enable)
     }
 }
 // ----------------------------------------------------------------------
-void Hal::setNoAxisActive(bool enabled)
+void Hal::setNoAxisActive(bool /*enabled*/)
 {
     *mHalCout << "hal   OFF no axis active" << endl;
 }

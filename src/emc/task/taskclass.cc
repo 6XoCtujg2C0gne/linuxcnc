@@ -102,13 +102,13 @@ int emcToolPrepare(int tool) { return task_methods->emcToolPrepare(tool); }
 int emcToolLoad() { return task_methods->emcToolLoad(); }
 int emcToolUnload()  { return task_methods->emcToolUnload(); }
 int emcToolLoadToolTable(const char *file) { return task_methods->emcToolLoadToolTable(file); }
-int emcToolSetOffset(int pocket, int toolno, EmcPose offset, double diameter,
+int emcToolSetOffset(int pocket, int toolno, const EmcPose& offset, double diameter,
                      double frontangle, double backangle, int orientation) {
     return task_methods->emcToolSetOffset( pocket,  toolno,  offset,  diameter,
 					   frontangle,  backangle,  orientation); }
 int emcToolSetNumber(int number) { return task_methods->emcToolSetNumber(number); }
 
-int emcTaskOnce(const char *filename, EMC_IO_STAT &emcioStatus)
+int emcTaskOnce(const char * /*filename*/, EMC_IO_STAT &emcioStatus)
 {
 	task_methods = new Task(emcioStatus);
     if (int res = task_methods->iocontrol_hal_init()) {
@@ -130,7 +130,8 @@ struct _inittab builtin_modules[] = {
 Task::Task(EMC_IO_STAT & emcioStatus_in) :
     emcioStatus(emcioStatus_in),
     iocontrol("iocontrol.0"),
-    ini_filename(emc_inifile)
+    ini_filename(emc_inifile),
+    tool_status(0)
     {
 
     IniFile inifile;
@@ -356,7 +357,7 @@ int Task::emcIoInit()//EMC_TOOL_INIT
     return 0;
 }
 
-int Task::emcIoAbort(EMC_ABORT reason)//EMC_TOOL_ABORT_TYPE
+int Task::emcIoAbort(EMC_ABORT /*reason*/)//EMC_TOOL_ABORT_TYPE
 {
     // only used in v2
     // this gets sent on any Task Abort, so it might be safer to stop
@@ -519,7 +520,7 @@ int Task::emcToolLoadToolTable(const char *file)//EMC_TOOL_LOAD_TOOL_TABLE_TYPE
     return 0;
 }
 
-int Task::emcToolSetOffset(int idx, int toolno, EmcPose offset, double diameter,
+int Task::emcToolSetOffset(int idx, int toolno, const EmcPose& offset, double diameter,
                      double frontangle, double backangle, int orientation)//EMC_TOOL_SET_OFFSET
 {
 

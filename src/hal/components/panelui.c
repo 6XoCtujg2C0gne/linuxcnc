@@ -130,6 +130,7 @@ PyObject *pExit,*pValue;
 static sig_atomic_t stop;
 static void quit(int sig)
 {
+    (void)sig;
     if ( ignore_sig ) {
     return;
     }
@@ -219,11 +220,11 @@ int main(int argc, char **argv)
                      "pyui.update_funct =  pyui.master.keyboard.update\n"
                      "pyui.periodic_funct =  pyui.master.keyboard.periodic\n");
     if (vdbg == 1){
-        PyRun_SimpleString("pyui.intilize = pyui.instance.build(2)\n");
+        PyRun_SimpleString("pyui.instance.build(2)\n");
     }else if (dbg == 1){
-        PyRun_SimpleString("pyui.intilize = pyui.instance.build(1)\n");
+        PyRun_SimpleString("pyui.instance.build(1)\n");
     }else{
-        PyRun_SimpleString("pyui.intilize = pyui.instance.build(0)\n");
+        PyRun_SimpleString("pyui.instance.build(0)\n");
     }
     pModule = PyImport_ImportModule("pyui");
 
@@ -309,7 +310,7 @@ int main(int argc, char **argv)
             last_sample = this_sample;
         }
         if ( tag ) {
-            printf ( "%d ", this_sample-1 );
+            printf ( "%u ", this_sample-1 );
         }
         /* get raw value, mask keyup and keydown codes */
         /* compute row and column */

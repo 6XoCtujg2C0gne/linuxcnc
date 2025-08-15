@@ -56,7 +56,7 @@
 #include <errno.h>
 #include <time.h>
 #include <fnmatch.h>
-
+#include <vector>
 
 static int unloadrt_comp(char *mod_name);
 static void print_comp_info(char **patterns);
@@ -1137,7 +1137,7 @@ int do_loadrt_cmd(char *mod_name, char *args[])
     argv[m++] = NULL;
     retval = do_loadusr_cmd(argv);
 #else
-    static char *rtmod_dir = EMC2_RTLIB_DIR;
+    static const char *rtmod_dir = EMC2_RTLIB_DIR;
     struct stat stat_buf;
     char mod_path[MAX_CMD_LEN+1];
 
@@ -1157,7 +1157,7 @@ int do_loadrt_cmd(char *mod_name, char *args[])
         if (r < 0) {
             halcmd_error("error making module path for %s/%s%s\n", rtmod_dir, mod_name, MODULE_EXT);
             return -1;
-        } else if (r >= sizeof(mod_path)) {
+        } else if (r >= (int)sizeof(mod_path)) {
             // truncation!
             halcmd_error("module path too long (max %lu) for %s/%s%s\n", (unsigned long)sizeof(mod_path)-1, rtmod_dir, mod_name, MODULE_EXT);
             return -1;
@@ -1359,16 +1359,16 @@ int do_unloadrt_cmd(char *mod_name)
 	halcmd_error("component '%s' is not loaded\n", mod_name);
 	return -1;
     }
-    /* we now have a list of components, unload them */
-    n = 0;
+    /* we now have a list of components, unload them in reverse order */
+    n -= 1;
     retval1 = 0;
-    while ( comps[n][0] != '\0' ) {
+    while ( n >= 0 ) {
         // special case: initial prefix means it is not a real comp
         if (strstr(comps[n],HAL_PSEUDO_COMP_PREFIX) == comps[n] ) {
-           n++;
+           n--;
            continue;
         }
-	retval = unloadrt_comp(comps[n++]);
+	retval = unloadrt_comp(comps[n--]);
 	/* check for fatal error */
 	if ( retval < -1 ) {
 	    return retval;
@@ -2485,7 +2485,7 @@ static const char *data_value2(int type, void *valptr)
 	value_str = buf;
 	break;
     case HAL_U32:
-	snprintf(buf, 14, "%ld", (unsigned long)*((hal_u32_t *) valptr));
+	snprintf(buf, 14, "%lu", (unsigned long)*((hal_u32_t *) valptr));
 	value_str = buf;
 	break;
     case HAL_S64:
@@ -2599,7 +2599,14 @@ static void save_comps(FILE *dst)
 	next = comp->next_ptr;
     }
 
-    hal_comp_t *comps[ncomps], **compptr = comps;
+    if(!ncomps) {
+        // No components found, bail
+        rtapi_mutex_give(&(hal_data->mutex));
+        return;
+	}
+
+    std::vector<hal_comp_t *> comps(ncomps, nullptr);
+    hal_comp_t **compptr = comps.data();
     next = hal_data->comp_list_ptr;
     while(next != 0)  {
 	comp = SHMPTR(next);

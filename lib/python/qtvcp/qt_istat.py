@@ -23,15 +23,24 @@ INIPATH = os.environ.get('INI_FILE_NAME', '/dev/null')
 RIP_FLAG = bool(os.environ.get('LINUXCNC_RIP_FLAG', False))
 
 if RIP_FLAG:
-    HOME = os.environ.get('EMC2_HOME', None)
+    BASE = os.environ.get('EMC2_HOME', None)
 else:
-    HOME = os.environ.get('LINUXCNC_HOME', None)
+    BASE = os.environ.get('LINUXCNC_HOME', None)
     # fallback until the RIP_FLAG is common
-    if HOME is None:
-        HOME = os.environ.get('EMC2_HOME', None)
+    if BASE is None:
+        BASE = os.environ.get('EMC2_HOME', None)
+# catch all
+if BASE is None:
+    BASE = '/usr'
+    if RIP_FLAG:
+        log.verbose('Linuxcnc Base directory not found in environmental variable: EMC2_HOME')
+    else:
+        log.verbose('Linuxcnc Base directory not found in environmental variable: LINUXCNC_HOME')
 
-if HOME is not None:
-    IMAGEDIR = os.path.join(HOME, "share", "qtvcp", "images")
+log.verbose('Using Linuxcnc Base directory: {}'.format(BASE))
+
+if BASE is not None:
+    IMAGEDIR = os.path.join(BASE, "share", "qtvcp", "images")
 else:
     IMAGEDIR = None
 
@@ -61,7 +70,7 @@ class _IStat(object):
         self.USER_M_PATH_LIST = []
 
         self.IMAGE_PATH = IMAGEDIR
-        self.LIB_PATH = os.path.join(HOME, "share", "qtvcp")
+        self.LIB_PATH = os.path.join(BASE, "share", "qtvcp")
         self.TITLE = ""
         self.ICON = ""
         # this is updated in qtvcp.py on startup
@@ -144,6 +153,9 @@ class _IStat(object):
         self.VALID_PROGRAM_EXTENSIONS = self.get_all_valid_extensions()
 
         self.PARAMETER_FILE = (self.INI.find("RS274NGC", "PARAMETER_FILE")) or None
+        if self.PARAMETER_FILE is None and self.LINUXCNC_IS_RUNNING:
+            log.critical('Missing PARAMETER_FILE setting in RS274NGC section')
+
         try:
             # check the INI file if UNITS are set to mm"
             # first check the global settings
@@ -166,11 +178,13 @@ class _IStat(object):
             self.MACHINE_IS_METRIC = True
             self.MACHINE_UNIT_CONVERSION = 1.0 / 25.4
             self.MACHINE_UNIT_CONVERSION_9 = [1.0 / 25.4] * 3 + [1] * 3 + [1.0 / 25.4] * 3
+            self.MACHINE_UNIT_CONVERSION_10 = [1.0 / 25.4] * 3 + [1] * 3 + [1.0 / 25.4] * 3 + [1]
             log.debug('Machine is METRIC based. unit Conversion constant={}'.format(self.MACHINE_UNIT_CONVERSION))
         else:
             self.MACHINE_IS_METRIC = False
             self.MACHINE_UNIT_CONVERSION = 25.4
             self.MACHINE_UNIT_CONVERSION_9 = [25.4] * 3 + [1] * 3 + [25.4] * 3
+            self.MACHINE_UNIT_CONVERSION_10 = [25.4] * 3 + [1] * 3 + [25.4] * 3 + [1]
             log.debug('Machine is IMPERIAL based. unit Conversion constant={}'.format(self.MACHINE_UNIT_CONVERSION))
 
         axes = self.INI.find("TRAJ", "COORDINATES")
@@ -650,7 +664,7 @@ class _IStat(object):
     ###################
     # return a found string or else None by default, anything else by option
     # since this is used in this file there are some workarounds for plasma machines
-    def get_error_safe_setting(self, heading, detail, default=None):
+    def get_error_safe_setting(self, heading, detail, default=None, warning = True):
         result = self.INI.find(heading, detail)
         if result:
             return result
@@ -658,7 +672,7 @@ class _IStat(object):
             if ('SPINDLE' in detail and self.MACHINE_IS_QTPLASMAC) or \
                ('ANGULAR' in detail and not self.HAS_ANGULAR_JOINT):
                 return default
-            else:
+            elif warning:
                 log.warning('INI Parsing Error, No {} Entry in {}, Using: {}'.format(detail, heading, default))
             return default
 
@@ -721,6 +735,10 @@ class _IStat(object):
 
     def convert_units_9(self, v):
         c = self.MACHINE_UNIT_CONVERSION_9
+        return list(map(lambda x, y: x * y, v, c))
+
+    def convert_units_10(self, v):
+        c = self.MACHINE_UNIT_CONVERSION_10
         return list(map(lambda x, y: x * y, v, c))
 
     # This finds the filter program's initializing

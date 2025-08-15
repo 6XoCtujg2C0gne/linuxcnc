@@ -227,7 +227,7 @@ struct PM_ROTATION_MATRIX {
 #endif
     PM_ROTATION_MATRIX(double xx, double xy, double xz,
 	double yx, double yy, double yz, double zx, double zy, double zz);
-    PM_ROTATION_MATRIX(PM_CARTESIAN _x, PM_CARTESIAN _y, PM_CARTESIAN _z);
+    PM_ROTATION_MATRIX(const PM_CARTESIAN& _x, const PM_CARTESIAN& _y, const PM_CARTESIAN& _z);
     PM_ROTATION_MATRIX(PM_CONST PM_ROTATION_VECTOR PM_REF v);	/* conversion 
 								 */
     PM_ROTATION_MATRIX(PM_CONST PM_QUATERNION PM_REF q);	/* conversion 
@@ -346,7 +346,7 @@ struct PM_POSE {
 #ifdef INCLUDE_POSEMATH_COPY_CONSTRUCTORS
     PM_POSE(PM_CCONST PM_POSE & p);
 #endif
-    PM_POSE(PM_CARTESIAN v, PM_QUATERNION q);
+    PM_POSE(const PM_CARTESIAN& v, const PM_QUATERNION& q);
     PM_POSE(double x, double y, double z,
 	double s, double sx, double sy, double sz);
     PM_POSE(PM_CONST PM_HOMOGENEOUS PM_REF h);	/* conversion */
@@ -368,7 +368,7 @@ struct PM_HOMOGENEOUS {
 #ifdef INCLUDE_POSEMATH_COPY_CONSTRUCTORS
     PM_HOMOGENEOUS(PM_CCONST PM_HOMOGENEOUS & h);
 #endif
-    PM_HOMOGENEOUS(PM_CARTESIAN v, PM_ROTATION_MATRIX m);
+    PM_HOMOGENEOUS(const PM_CARTESIAN& v, const PM_ROTATION_MATRIX& m);
     PM_HOMOGENEOUS(PM_CONST PM_POSE PM_REF p);	/* conversion */
 
     /* operators */
@@ -390,7 +390,7 @@ struct PM_LINE {
 #endif
 
     /* functions */
-    int init(PM_POSE start, PM_POSE end);
+    int init(const PM_POSE& start, const PM_POSE& end);
     int point(double len, PM_POSE * point);
 
     /* data */
@@ -403,15 +403,18 @@ struct PM_LINE {
 
 struct PM_CIRCLE {
     /* ctors/dtors */
-    PM_CIRCLE() {
-    };
+    PM_CIRCLE()
+      : radius(0.0),
+        angle(0.0),
+        spiral(0.0)
+    {};
 #ifdef INCLUDE_POSEMATH_COPY_CONSTRUCTORS
     PM_CIRCLE(PM_CCONST PM_CIRCLE &);
 #endif
 
     /* functions */
-    int init(PM_POSE start, PM_POSE end,
-	PM_CARTESIAN center, PM_CARTESIAN normal, int turn);
+    int init(const PM_POSE& start, const PM_POSE& end,
+	const PM_CARTESIAN& center, const PM_CARTESIAN& normal, int turn);
     int point(double angle, PM_POSE * point);
 
     /* data */
@@ -696,7 +699,7 @@ extern "C" {
 //#define pmSq(x) ((x)*(x))
 
 int pmClose(double a, double b, double eps); 
-inline double pmSq(double x) { return x*x; }
+__attribute__((always_inline)) static inline double pmSq(double x) { return x*x; }
 
 #ifdef TO_DEG
 #undef TO_DEG

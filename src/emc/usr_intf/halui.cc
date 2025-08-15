@@ -267,7 +267,7 @@ static double receiveTimeout = 10.0;
 // how long to wait for Task to finish running our command
 static double doneTimeout = 60.;
 
-static void quit(int sig)
+static void quit(int /*sig*/)
 {
     done = 1;
 }
@@ -641,7 +641,7 @@ int halui_hal_init(void)
 	    if (retval < 0) return retval;
 	    retval = hal_pin_s32_newf(HAL_IN,  &(halui_data->so_counts[spindle]), comp_id, "halui.spindle.%i.override.counts", spindle);
 	    if (retval < 0) return retval;
-	    *halui_data->so_counts = 0;
+	    *halui_data->so_counts[spindle] = 0;
 	    retval = hal_pin_bit_newf(HAL_IN,  &(halui_data->so_count_enable[spindle]), comp_id, "halui.spindle.%i.override.count-enable", spindle);
 	    if (retval < 0) return retval;
 	    *halui_data->so_count_enable[spindle] = 1;
@@ -1430,14 +1430,14 @@ static int iniLoad(const char *filename)
 
     // set flags if RCS_DEBUG in ini file
     if ((inistring = inifile.Find("RCS_DEBUG", "EMC"))) {
-        static long int flags;
+        long unsigned int flags;
         if (sscanf(*inistring, "%lx", &flags) < 1) {
             perror("failed to parse [EMC] RCS_DEBUG");
         }
         // clear all flags
         clear_rcs_print_flag(PRINT_EVERYTHING);
         // set parsed flags
-        set_rcs_print_flag(flags);
+        set_rcs_print_flag((long)flags);
     }
     // output infinite RCS errors by default
     max_rcs_errors_to_print = -1;
@@ -1452,18 +1452,19 @@ static int iniLoad(const char *filename)
 	    strncpy(version, *inistring, LINELEN-1);
     }
 
+    if (emc_debug & EMC_DEBUG_CONFIG) {
+        if ((inistring = inifile.Find("MACHINE", "EMC"))) {
+            strncpy(machine, *inistring, LINELEN-1);
+        } else {
+            strncpy(machine, "unknown", LINELEN-1);
+        }
 
-    if ((inistring = inifile.Find("MACHINE", "EMC"))) {
-	    strncpy(machine, *inistring, LINELEN-1);
-    } else {
-	    strncpy(machine, "unknown", LINELEN-1);
+        extern char *program_invocation_short_name;
+        rcs_print(
+            "%s (%d) halui: machine '%s'  version '%s'\n",
+            program_invocation_short_name, getpid(), machine, version
+        );
     }
-
-    extern char *program_invocation_short_name;
-    rcs_print(
-        "%s (%d) halui: machine '%s'  version '%s'\n",
-        program_invocation_short_name, getpid(), machine, version
-    );
 
     if ((inistring = inifile.Find("NML_FILE", "EMC"))) {
 	// copy to global

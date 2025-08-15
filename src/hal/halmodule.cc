@@ -20,6 +20,7 @@
 #include <structmember.h>
 #include <string>
 #include <map>
+#include <vector>
 using namespace std;
 
 #include "config.h"
@@ -123,13 +124,13 @@ fail:
 
 bool from_python(PyObject *o, hal_u64_t *u) {
     PyObject *tmp = 0;
-    unsigned long long l;
+    long long l;
     tmp = PyLong_Check(o) ? o : PyNumber_Long(o);
     if(!tmp) goto fail;
 
     l = PyLong_AsLongLong(tmp);
     if(PyErr_Occurred()) goto fail;
-    if(l < 0 || l != (rtapi_u64)l) {
+    if(l < 0) {
         PyErr_Format(PyExc_OverflowError, "Value %lld out of range", l);
         goto fail;
     }
@@ -230,6 +231,7 @@ static PyObject *pyhal_error(int code) {
 }
 
 static int pyhal_init(PyObject *_self, PyObject *args, PyObject *kw) {
+    (void)kw;
     char *name;
     char *prefix = 0;
     halobject *self = (halobject *)_self;
@@ -374,8 +376,8 @@ static PyObject *pyhal_read_common(halitem *item) {
             case HAL_S64: return to_python(*(item->u->pin.s64));
             case HAL_FLOAT: return to_python(*(item->u->pin.f));
             case HAL_PORT: // HAL_PORT is currently not supported
-            case HAL_TYPE_UNSPECIFIED: /* fallthrough */ ;
-            case HAL_TYPE_UNINITIALIZED: /* fallthrough */ ;
+            default:
+                break;
         }
     } else {
         switch(item->type) {
@@ -386,8 +388,8 @@ static PyObject *pyhal_read_common(halitem *item) {
             case HAL_S64: return to_python(item->u->param.s64);
             case HAL_FLOAT: return to_python(item->u->param.f);
             case HAL_PORT: // HAL_PORT is currently not supported
-            case HAL_TYPE_UNSPECIFIED: /* fallthrough */ ;
-            case HAL_TYPE_UNINITIALIZED: /* fallthrough */ ;
+            default:
+                break;
         }
     }
     PyErr_Format(pyhal_error_type, "Invalid item type %d", item->type);
@@ -520,14 +522,14 @@ static PyObject *pyhal_get_pin(PyObject *_self, PyObject *o) {
 }
 
 
-static PyObject *pyhal_get_pins(PyObject *_self, PyObject *o) {
+static PyObject *pyhal_get_pins(PyObject *_self, PyObject * /*o*/) {
   char *name;
   halobject *self = (halobject *)_self;
 
   EXCEPTION_IF_NOT_LIVE(NULL);
 
   PyObject *d = PyDict_New();
-  for(itemmap::iterator i = self->items->begin(); i != self->items->end(); i++) {
+  for(itemmap::iterator i = self->items->begin(); i != self->items->end(); ++i) {
     halitem * pin = &(i->second);
     name = strdup(i->first.c_str());
     PyDict_SetItemString(d, name, pyhal_read_common(pin));
@@ -536,28 +538,28 @@ static PyObject *pyhal_get_pins(PyObject *_self, PyObject *o) {
 }
 
 
-static PyObject *pyhal_ready(PyObject *_self, PyObject *o) {
+static PyObject *pyhal_ready(PyObject *_self, PyObject * /*o*/) {
     // hal_ready did not exist in EMC 2.0.x, make it a no-op
     halobject *self = (halobject *)_self;
     EXCEPTION_IF_NOT_LIVE(NULL);
     int res = hal_ready(self->hal_id);
     if(res) return pyhal_error(res);
-    Py_RETURN_NONE;
+    return Py_None;
 }
 
-static PyObject *pyhal_unready(PyObject *_self, PyObject *o) {
+static PyObject *pyhal_unready(PyObject *_self, PyObject * /*o*/) {
     // hal_ready did not exist in EMC 2.0.x, make it a no-op
     halobject *self = (halobject *)_self;
     EXCEPTION_IF_NOT_LIVE(NULL);
     int res = hal_unready(self->hal_id);
     if(res) return pyhal_error(res);
-    Py_RETURN_NONE;
+    return Py_None;
 }
 
-static PyObject *pyhal_exit(PyObject *_self, PyObject *o) {
+static PyObject *pyhal_exit(PyObject *_self, PyObject * /*o*/) {
     halobject *self = (halobject *)_self;
     pyhal_exit_impl(self);
-    Py_RETURN_NONE;
+    return Py_None;
 }
 
 static PyObject *pyhal_repr(PyObject *_self) {
@@ -596,7 +598,7 @@ static PyObject *pyhal_get_prefix(PyObject *_self, PyObject *args) {
     EXCEPTION_IF_NOT_LIVE(NULL);
 
     if(!self->prefix)
-	Py_RETURN_NONE;
+	return Py_None;
 
     return PyUnicode_FromString(self->prefix);
 }
@@ -617,7 +619,7 @@ static PyObject *pyhal_set_prefix(PyObject *_self, PyObject *args) {
         return NULL;
     }
 
-    Py_RETURN_NONE;
+    return Py_None;
 }
 
 static PyMethodDef hal_methods[] = {
@@ -639,7 +641,7 @@ static PyMethodDef hal_methods[] = {
         "Call hal_ready"},
     {"unready", pyhal_unready, METH_NOARGS,
         "Call hal_unready"},
-    {NULL},
+    {},
 };
 
 static PyMappingMethods halobject_map = {
@@ -690,6 +692,23 @@ PyTypeObject halobject_type = {
     PyType_GenericNew,         /*tp_new*/
     0,                         /*tp_free*/
     0,                         /*tp_is_gc*/
+    0,                         /*tp_bases*/
+    0,                         /*tp_mro*/
+    0,                         /*tp_cache*/
+    0,                         /*tp_subclasses*/
+    0,                         /*tp_weaklink*/
+    0,                         /*tp_del*/
+    0,                         /*tp_version_tag*/
+    0,                         /*tp_finalize*/
+#if PY_VERSION_HEX >= 0x030800f0	// 3.8
+    0,                         /*tp_vectorcall*/
+#if PY_VERSION_HEX >= 0x030c00f0	// 3.12
+    0,                         /*tp_watched*/
+#if PY_VERSION_HEX >= 0x030d00f0	// 3.13
+    0,                         /*tp_versions_used*/
+#endif
+#endif
+#endif
 };
 
 static const char * pin_type2name(hal_type_t type) {
@@ -735,7 +754,7 @@ static PyObject *pyhalpin_repr(PyObject *_self) {
             pin_type2name(self->type), pin_dir2name(self->dir.pindir));
 }
 
-static int pyhalpin_init(PyObject *_self, PyObject *, PyObject *) {
+static int pyhalpin_init(PyObject * /*_self*/, PyObject *, PyObject *) {
     PyErr_Format(PyExc_RuntimeError,
 	    "Cannot be constructed directly");
     return -1;
@@ -753,7 +772,7 @@ static PyObject * pyhal_pin_set(PyObject * _self, PyObject * value) {
     pyhalitem * self = (pyhalitem *) _self;
     if (pyhal_write_common(&self->pin, value) == -1)
 	return NULL;
-    Py_RETURN_NONE;
+    return Py_None;
 }
 
 static PyObject * pyhal_pin_get(PyObject * _self, PyObject *) {
@@ -782,7 +801,7 @@ static PyObject * pyhal_pin_is_pin(PyObject * _self, PyObject *) {
 static PyObject * pyhal_pin_get_name(PyObject * _self, PyObject *) {
     pyhalitem * self = (pyhalitem *) _self;
     if (!self->name)
-	Py_RETURN_NONE;
+	return Py_None;
     return PyUnicode_FromString(self->name);
 }
 
@@ -793,7 +812,7 @@ static PyMethodDef halpin_methods[] = {
     {"get_dir", pyhal_pin_get_dir, METH_NOARGS, "Get item direction"},
     {"get_name", pyhal_pin_get_name, METH_NOARGS, "Get item name"},
     {"is_pin", pyhal_pin_is_pin, METH_NOARGS, "If item is pin or param"},
-    {NULL},
+    {},
 };
 
 static
@@ -838,6 +857,23 @@ PyTypeObject halpin_type = {
     PyType_GenericNew,         /*tp_new*/
     0,                         /*tp_free*/
     0,                         /*tp_is_gc*/
+    0,                         /*tp_bases*/
+    0,                         /*tp_mro*/
+    0,                         /*tp_cache*/
+    0,                         /*tp_subclasses*/
+    0,                         /*tp_weaklink*/
+    0,                         /*tp_del*/
+    0,                         /*tp_version_tag*/
+    0,                         /*tp_finalize*/
+#if PY_VERSION_HEX >= 0x030800f0	// 3.8
+    0,                         /*tp_vectorcall*/
+#if PY_VERSION_HEX >= 0x030c00f0	// 3.12
+    0,                         /*tp_watched*/
+#if PY_VERSION_HEX >= 0x030d00f0	// 3.13
+    0,                         /*tp_versions_used*/
+#endif
+#endif
+#endif
 };
 
 static PyObject * pyhal_pin_new(halitem * pin, const char * name) {
@@ -853,7 +889,7 @@ static PyObject * pyhal_pin_new(halitem * pin, const char * name) {
     return (PyObject *) pypin;
 }
 
-PyObject *pin_has_writer(PyObject *self, PyObject *args) {
+PyObject *pin_has_writer(PyObject * /*self*/, PyObject *args) {
     char *name;
     if(!PyArg_ParseTuple(args, "s", &name)) return NULL;
     if(!hal_shmem_base) {
@@ -877,7 +913,7 @@ PyObject *pin_has_writer(PyObject *self, PyObject *args) {
 }
 
 
-PyObject *component_exists(PyObject *self, PyObject *args) {
+PyObject *component_exists(PyObject * /*self*/, PyObject *args) {
     char *name;
     if(!PyArg_ParseTuple(args, "s", &name)) return NULL;
     if(!hal_shmem_base) {
@@ -889,7 +925,7 @@ PyObject *component_exists(PyObject *self, PyObject *args) {
     return PyBool_FromLong(halpr_find_comp_by_name(name) != NULL);
 }
 
-PyObject *component_is_ready(PyObject *self, PyObject *args) {
+PyObject *component_is_ready(PyObject * /*self*/, PyObject *args) {
     char *name;
     if(!PyArg_ParseTuple(args, "s", &name)) return NULL;
     if(!hal_shmem_base) {
@@ -903,7 +939,7 @@ PyObject *component_is_ready(PyObject *self, PyObject *args) {
     return PyBool_FromLong((thecomp) && (thecomp->ready != 0));
 }
 
-PyObject *new_sig(PyObject *self, PyObject *args) {
+PyObject *new_sig(PyObject * /*self*/, PyObject *args) {
     char *name;
     int type,retval;
     if(!PyArg_ParseTuple(args, "si", &name,&type)) return NULL;
@@ -939,7 +975,7 @@ PyObject *new_sig(PyObject *self, PyObject *args) {
     return PyBool_FromLong(retval != 0);
 }
 
-PyObject *connect(PyObject *self, PyObject *args) {
+PyObject *connect(PyObject * /*self*/, PyObject *args) {
     char *signame,*pinname;
     if(!PyArg_ParseTuple(args, "ss", &pinname,&signame)) return NULL;
     if(!hal_shmem_base) {
@@ -951,7 +987,7 @@ PyObject *connect(PyObject *self, PyObject *args) {
     return PyBool_FromLong(hal_link(pinname, signame) != 0);
 }
 
-PyObject *disconnect(PyObject *self, PyObject *args) {
+PyObject *disconnect(PyObject * /*self*/, PyObject *args) {
     char *pinname;
     if(!PyArg_ParseTuple(args, "s", &pinname)) return NULL;
     if(!hal_shmem_base) {
@@ -1053,7 +1089,7 @@ static int set_common(hal_type_t type, void *d_ptr, char *value) {
     return retval;
 }
 
-PyObject *set_p(PyObject *self, PyObject *args) {
+PyObject *set_p(PyObject * /*self*/, PyObject *args) {
     char *name,*value;
     int retval;
     hal_param_t *param;
@@ -1117,7 +1153,7 @@ PyObject *set_p(PyObject *self, PyObject *args) {
     return PyBool_FromLong(retval != 0);
 }
 
-PyObject *set_s(PyObject *self, PyObject *args) {
+PyObject *set_s(PyObject * /*self*/, PyObject *args) {
     char *name,*value;
     int retval;
     hal_sig_t *sig;
@@ -1156,7 +1192,7 @@ PyObject *set_s(PyObject *self, PyObject *args) {
 
 /*######################################*/
 /* Get a Pin, Param or signal value     */
-PyObject *get_value(PyObject *self, PyObject *args) {
+PyObject *get_value(PyObject * /*self*/, PyObject *args) {
     char *name;
     hal_param_t *param;
     hal_pin_t *pin;
@@ -1188,8 +1224,8 @@ PyObject *get_value(PyObject *self, PyObject *args) {
             case HAL_S64: return Py_BuildValue("l",  (long long)*(hal_s64_t *)d_ptr);
             case HAL_FLOAT: return Py_BuildValue("f",  (double)*(hal_float_t *)d_ptr);
             case HAL_PORT: // HAL_PORT is currently not supported
-            case HAL_TYPE_UNSPECIFIED: /* fallthrough */ ;
-            case HAL_TYPE_UNINITIALIZED: /* fallthrough */ ;
+            default:
+                break;
         }
     }
     /* not found, search pin list for name */
@@ -1214,8 +1250,8 @@ PyObject *get_value(PyObject *self, PyObject *args) {
             case HAL_S64: return Py_BuildValue("l",  (long long)*(hal_s64_t *)d_ptr);
             case HAL_FLOAT: return Py_BuildValue("f",  (double)*(hal_float_t *)d_ptr);
             case HAL_PORT: // HAL_PORT is currently not supported
-            case HAL_TYPE_UNSPECIFIED: /* fallthrough */ ;
-            case HAL_TYPE_UNINITIALIZED: /* fallthrough */ ;
+            default:
+                break;
         }
     }
     sig = halpr_find_sig_by_name(name);
@@ -1233,8 +1269,8 @@ PyObject *get_value(PyObject *self, PyObject *args) {
             case HAL_S64: return Py_BuildValue("l",  (long long)*(hal_s64_t *)d_ptr);
             case HAL_FLOAT: return Py_BuildValue("f",  (double)*(hal_float_t *)d_ptr);
             case HAL_PORT: // HAL_PORT is currently not supported
-            case HAL_TYPE_UNSPECIFIED: /* fallthrough */ ;
-            case HAL_TYPE_UNINITIALIZED: /* fallthrough */ ;
+            default:
+                break;
         }
     }
     /* error if here */
@@ -1247,7 +1283,7 @@ PyObject *get_value(PyObject *self, PyObject *args) {
 
 /*######################################*/
 /* Get a dict of pin info for all pins in system */
-PyObject *get_info_pins(PyObject *self, PyObject *args) {
+PyObject *get_info_pins(PyObject * /*self*/, PyObject * /*args*/) {
     SHMFIELD(hal_pin_t) next;
     int type;
     char str_n[] = "NAME";
@@ -1336,7 +1372,7 @@ PyObject *get_info_pins(PyObject *self, PyObject *args) {
 
 /*######################################*/
 /* Get a dict of signal info for all signals in system */
-PyObject *get_info_signals(PyObject *self, PyObject *args) {
+PyObject *get_info_signals(PyObject * /*self*/, PyObject * /*args*/) {
     SHMFIELD(hal_sig_t) next;
     int type;
     char str_n[] = "NAME";
@@ -1421,7 +1457,7 @@ PyObject *get_info_signals(PyObject *self, PyObject *args) {
 
 /*######################################*/
 /* Get a dict of parameter info for all parameters in system */
-PyObject *get_info_params(PyObject *self, PyObject *args) {
+PyObject *get_info_params(PyObject * /*self*/, PyObject * /*args*/) {
     SHMFIELD(hal_param_t) next;
     int type;
     char str_n[] = "NAME";
@@ -1499,7 +1535,7 @@ struct shmobject {
     void *buf;
 };
 
-static int pyshm_init(PyObject *_self, PyObject *args, PyObject *kw) {
+static int pyshm_init(PyObject *_self, PyObject *args, PyObject * /*kw*/) {
     shmobject *self = (shmobject *)_self;
     self->comp = 0;
     self->shm_id = -1;
@@ -1529,7 +1565,7 @@ static void pyshm_delete(PyObject *_self) {
     Py_XDECREF(self->comp);
 }
 
-static int shm_buffer_getbuffer(PyObject *obj, Py_buffer *view, int flags) {
+static int shm_buffer_getbuffer(PyObject *obj, Py_buffer *view, int /*flags*/) {
   if (view == NULL) {
     PyErr_SetString(PyExc_ValueError, "NULL view in getbuffer");
     return -1;
@@ -1552,25 +1588,25 @@ static PyObject *pyshm_repr(PyObject *_self) {
 static PyObject *shm_setsize(PyObject *_self, PyObject *args) {
     shmobject *self = (shmobject *)_self;
     if(!PyArg_ParseTuple(args, "k", &self->size)) return NULL;
-    Py_RETURN_NONE;
+    return Py_None;
 }
 
 
-static PyObject *shm_getbuffer(PyObject *_self, PyObject *dummy) {
+static PyObject *shm_getbuffer(PyObject *_self, PyObject * /*dummy*/) {
 
     shmobject *self = (shmobject *)_self;
     return (PyObject*)PyMemoryView_FromObject((PyObject*)self);
 }
 
-static PyObject *set_msg_level(PyObject *_self, PyObject *args) {
+static PyObject *set_msg_level(PyObject * /*_self*/, PyObject *args) {
     int level, res;
     if(!PyArg_ParseTuple(args, "i", &level)) return NULL;
     res = rtapi_set_msg_level(level);
     if(res) return pyhal_error(res);
-    Py_RETURN_NONE;
+    return Py_None;
 }
 
-static PyObject *get_msg_level(PyObject *_self, PyObject *args) {
+static PyObject *get_msg_level(PyObject * /*_self*/, PyObject * /*args*/) {
     return PyLong_FromLong(rtapi_get_msg_level());
 }
 
@@ -1584,7 +1620,7 @@ static PyMethodDef shm_methods[] = {
 	"Get a writable buffer object for the shared memory segment"},
     {"setsize", shm_setsize, METH_VARARGS,
 	"Set the size of the shared memory segment"},
-    {NULL},
+    {},
 };
 
 static
@@ -1629,6 +1665,23 @@ PyTypeObject shm_type = {
     PyType_GenericNew,         /*tp_new*/
     0,                         /*tp_free*/
     0,                         /*tp_is_gc*/
+    0,                         /*tp_bases*/
+    0,                         /*tp_mro*/
+    0,                         /*tp_cache*/
+    0,                         /*tp_subclasses*/
+    0,                         /*tp_weaklink*/
+    0,                         /*tp_del*/
+    0,                         /*tp_version_tag*/
+    0,                         /*tp_finalize*/
+#if PY_VERSION_HEX >= 0x030800f0	// 3.8
+    0,                         /*tp_vectorcall*/
+#if PY_VERSION_HEX >= 0x030c00f0	// 3.12
+    0,                         /*tp_watched*/
+#if PY_VERSION_HEX >= 0x030d00f0	// 3.13
+    0,                         /*tp_versions_used*/
+#endif
+#endif
+#endif
 };
 
 struct streamobj {
@@ -1641,7 +1694,7 @@ struct streamobj {
     unsigned sampleno;
 };
 
-static int pystream_init(PyObject *_self, PyObject *args, PyObject *kw) {
+static int pystream_init(PyObject *_self, PyObject *args, PyObject * /*kw*/) {
     int depth=0;
     char *typestring=NULL;
 
@@ -1697,12 +1750,14 @@ static int pystream_init(PyObject *_self, PyObject *args, PyObject *kw) {
     return 0;
 }
 
-PyObject *stream_read(PyObject *_self, PyObject *unused) {
+PyObject *stream_read(PyObject *_self, PyObject * /*unused*/) {
     streamobj *self = (streamobj *)_self;
     int n = PyBytes_Size(self->pyelt);
-    hal_stream_data buf[n];
-    if(hal_stream_read(&self->stream, buf, &self->sampleno) < 0)
-        Py_RETURN_NONE;
+    if(n <= 0)
+        return Py_None;
+    vector<hal_stream_data> buf(n);
+    if(hal_stream_read(&self->stream, buf.data(), &self->sampleno) < 0)
+        return Py_None;
 
     PyObject *r = PyTuple_New(n);
     if(!r) return 0;
@@ -1741,7 +1796,7 @@ PyObject *stream_write(PyObject *_self, PyObject *args) {
         return NULL;
     }
 
-    hal_stream_data buf[n];
+    vector<hal_stream_data> buf(n);
     for(int i=0; i<n; i++) {
         PyObject *o = PyTuple_GET_ITEM(data, i);
         switch(PyBytes_AS_STRING(self->pyelt)[i]) {
@@ -1752,16 +1807,16 @@ PyObject *stream_write(PyObject *_self, PyObject *args) {
         default: memset(&buf[i], 0, sizeof(buf[i])); break;
         }
     }
-    int r = hal_stream_write(&self->stream, buf);
+    int r = hal_stream_write(&self->stream, buf.data());
     if(r < 0) {
         errno = -r; PyErr_SetFromErrno(PyExc_IOError); return 0;
     }
-    Py_RETURN_NONE;
+    return Py_None;
 }
 
 static PyMethodDef stream_methods[] = {
-    {"read", stream_read, METH_NOARGS},
-    {"write", stream_write, METH_VARARGS},
+    {"read", stream_read, METH_NOARGS, NULL},
+    {"write", stream_write, METH_VARARGS, NULL},
     {}
 };
 
@@ -1776,7 +1831,7 @@ PyObject *stream_getter(PyObject *_self, void *vfp) {
     return to_python(result);
 }
 
-PyObject *stream_element_types(PyObject *_self, void *unused) {
+PyObject *stream_element_types(PyObject *_self, void * /*unused*/) {
     streamobj *self = reinterpret_cast<streamobj*>(_self);
     if(!self->pyelt) {
     }
@@ -1784,9 +1839,6 @@ PyObject *stream_element_types(PyObject *_self, void *unused) {
     return self->pyelt;
 }
 
-// "deprecated conversion from string constant to 'char *'" occurs due to
-// missing const-qualifications in Python headers
-#pragma GCC diagnostic ignored "-Wwrite-strings"
 static PyMemberDef stream_members[] = {
     {"sampleno", T_UINT, offsetof(streamobj, sampleno), READONLY,
         "The number of the last successfully read sample"},
@@ -1803,7 +1855,6 @@ static PyGetSetDef stream_getset[] = {
     {"num_overruns", stream_getter<int>, NULL, NULL, VFC(hal_stream_num_overruns)},
     {}
 };
-#pragma GCC diagnostic warning "-Wwrite-strings"
 
 static void pystream_delete(PyObject *_self) {
     streamobj *self = reinterpret_cast<streamobj*>(_self);
@@ -1864,6 +1915,23 @@ PyTypeObject stream_type = {
     PyType_GenericNew,         /*tp_new*/
     0,                         /*tp_free*/
     0,                         /*tp_is_gc*/
+    0,                         /*tp_bases*/
+    0,                         /*tp_mro*/
+    0,                         /*tp_cache*/
+    0,                         /*tp_subclasses*/
+    0,                         /*tp_weaklink*/
+    0,                         /*tp_del*/
+    0,                         /*tp_version_tag*/
+    0,                         /*tp_finalize*/
+#if PY_VERSION_HEX >= 0x030800f0	// 3.8
+    0,                         /*tp_vectorcall*/
+#if PY_VERSION_HEX >= 0x030c00f0	// 3.12
+    0,                         /*tp_watched*/
+#if PY_VERSION_HEX >= 0x030d00f0	// 3.13
+    0,                         /*tp_versions_used*/
+#endif
+#endif
+#endif
 };
 
 
@@ -1898,7 +1966,7 @@ PyMethodDef module_methods[] = {
 	".get_info_signals(): Get a list of dicts for all the signals; {NAME:, VALUE:}"},
     {"get_info_params", get_info_params, METH_VARARGS,
 	".get_info_params(): Get a list of dicts for all the parameters; {NAME:, VALUE:}"},
-    {NULL},
+    {},
 };
 
 const char *module_doc = "Interface to emc2's hal\n"
@@ -1930,9 +1998,13 @@ const char *module_doc = "Interface to emc2's hal\n"
 static struct PyModuleDef hal_moduledef = {
     PyModuleDef_HEAD_INIT,  /* m_base */
     "_hal",                 /* m_name */
-    module_doc,                   /* m_doc */
+    module_doc,             /* m_doc */
     -1,                     /* m_size */
-    module_methods            /* m_methods */
+    module_methods,         /* m_methods */
+    NULL,                   /* m_slots */
+    NULL,                   /* m_traverse */
+    NULL,                   /* m_clear */
+    NULL,                   /* m_free */
 };
 
 PyMODINIT_FUNC PyInit__hal(void);

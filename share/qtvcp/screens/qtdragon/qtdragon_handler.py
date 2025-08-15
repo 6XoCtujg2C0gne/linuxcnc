@@ -57,9 +57,13 @@ PAGE_OFFSET = 2
 PAGE_TOOL = 3
 PAGE_NGCGUI = 4
 
+# message constants
 DEFAULT = 0
 WARNING = 1
 CRITICAL = 2
+DEBUG = 3
+SUCCESS = 4
+ERROR = 5
 
 VERSION ='1.4'
 
@@ -145,6 +149,7 @@ class HandlerClass:
         STATUS.connect('override-limits-changed', lambda w, state, data: self._check_override_limits(state, data))
         STATUS.connect('graphics-gcode-properties', lambda w, d: self.update_gcode_properties(d))
         STATUS.connect('status-message', lambda w, d, o: self.add_external_status(d,o))
+        STATUS.connect('runstop-line-changed', lambda w, l :self.lastRunLine(l))
 
         self.swoopPath = os.path.join(paths.IMAGEDIR,'lcnc_swoop.png')
         self.swoopURL = QtCore.QUrl.fromLocalFile(self.swoopPath)
@@ -189,7 +194,6 @@ class HandlerClass:
         self.w.stackedWidget.setCurrentIndex(0)
         self.w.stackedWidget_dro.setCurrentIndex(0)
         self.w.btn_spindle_pause.setEnabled(False)
-        self.w.btn_dimensions.setChecked(True)
         self.w.page_buttonGroup.buttonClicked.connect(self.main_tab_changed)
         self.w.selectButtonGroup.buttonClicked.connect(self.MPG_select_changed)
         self.w.filemanager_usb.showMediaDir(quiet = True)
@@ -328,51 +332,51 @@ class HandlerClass:
     #############################
     def init_pins(self):
         # spindle control pins
-        pin = QHAL.newpin("spindle-amps", QHAL.HAL_FLOAT, QHAL.HAL_IN)
-        pin.value_changed.connect(self.spindle_pwr_changed)
+        pin = QHAL.newPin("spindle-amps", QHAL.HAL_FLOAT, QHAL.HAL_IN)
+        pin.pinValueChanged.connect(lambda p,v: self.spindle_pwr_changed(v))
 
-        pin = QHAL.newpin("spindle-volts", QHAL.HAL_FLOAT, QHAL.HAL_IN)
-        pin.value_changed.connect(self.spindle_pwr_changed)
+        pin = QHAL.newPin("spindle-volts", QHAL.HAL_FLOAT, QHAL.HAL_IN)
+        pin.pinValueChanged.connect(lambda p,v: self.spindle_pwr_changed(v))
 
-        pin = QHAL.newpin("spindle-fault-u32", QHAL.HAL_U32, QHAL.HAL_IN)
-        pin.value_changed.connect(self.spindle_fault_changed)
-        pin = QHAL.newpin("spindle-fault", QHAL.HAL_S32, QHAL.HAL_IN)
-        pin.value_changed.connect(self.spindle_fault_changed)
+        pin = QHAL.newPin("spindle-fault-u32", QHAL.HAL_U32, QHAL.HAL_IN)
+        pin.pinValueChanged.connect(lambda p,v: self.spindle_fault_changed(v))
+        pin = QHAL.newPin("spindle-fault", QHAL.HAL_S32, QHAL.HAL_IN)
+        pin.pinValueChanged.connect(lambda p,v: self.spindle_fault_changed(v))
 
-        pin = QHAL.newpin("spindle-modbus-errors-u32", QHAL.HAL_U32, QHAL.HAL_IN)
-        pin.value_changed.connect(self.mb_errors_changed)
-        pin = QHAL.newpin("spindle-modbus-errors", QHAL.HAL_S32, QHAL.HAL_IN)
-        pin.value_changed.connect(self.mb_errors_changed)
+        pin = QHAL.newPin("spindle-modbus-errors-u32", QHAL.HAL_U32, QHAL.HAL_IN)
+        pin.pinValueChanged.connect(lambda p,v: self.mb_errors_changed(v))
+        pin = QHAL.newPin("spindle-modbus-errors", QHAL.HAL_S32, QHAL.HAL_IN)
+        pin.pinValueChanged.connect(lambda p,v: self.mb_errors_changed(v))
 
-        pin = QHAL.newpin("spindle-modbus-connection", QHAL.HAL_BIT, QHAL.HAL_IN)
-        pin.value_changed.connect(self.mb_connection_changed)
+        pin = QHAL.newPin("spindle-modbus-connection", QHAL.HAL_BIT, QHAL.HAL_IN)
+        pin.pinValueChanged.connect(lambda p,v: self.mb_connection_changed(v))
 
-        QHAL.newpin("spindle-inhibit", QHAL.HAL_BIT, QHAL.HAL_OUT)
+        QHAL.newPin("spindle-inhibit", QHAL.HAL_BIT, QHAL.HAL_OUT)
 
-        pin = QHAL.newpin("external-pause", QHAL.HAL_BIT, QHAL.HAL_IN)
-        pin.value_changed.connect(self.btn_pause_clicked)
+        pin = QHAL.newPin("external-pause", QHAL.HAL_BIT, QHAL.HAL_IN)
+        pin.pinValueChanged.connect(lambda p,v: self.btn_pause_clicked(v))
 
         # external offset control pins
-        QHAL.newpin("eoffset-enable", QHAL.HAL_BIT, QHAL.HAL_OUT)
-        QHAL.newpin("eoffset-clear", QHAL.HAL_BIT, QHAL.HAL_OUT)
+        QHAL.newPin("eoffset-enable", QHAL.HAL_BIT, QHAL.HAL_OUT)
+        QHAL.newPin("eoffset-clear", QHAL.HAL_BIT, QHAL.HAL_OUT)
         self.h['eoffset-clear'] = True
-        QHAL.newpin("eoffset-spindle-count", QHAL.HAL_S32, QHAL.HAL_OUT)
-        pin = QHAL.newpin("eoffset-is-active", QHAL.HAL_BIT, QHAL.HAL_IN)
-        pin.value_changed.connect(self.external_offset_state_changed)
+        QHAL.newPin("eoffset-spindle-count", QHAL.HAL_S32, QHAL.HAL_OUT)
+        pin = QHAL.newPin("eoffset-is-active", QHAL.HAL_BIT, QHAL.HAL_IN)
+        pin.pinValueChanged.connect(lambda p,v: self.external_offset_state_changed(v))
 
         # total external offset
-        pin = QHAL.newpin("eoffset-value", QHAL.HAL_FLOAT, QHAL.HAL_IN)
+        pin = QHAL.newPin("eoffset-value", QHAL.HAL_FLOAT, QHAL.HAL_IN)
 
         # MPG scrolling pin
-        self.pin_mpg_in = QHAL.newpin('mpg-in',QHAL.HAL_S32, QHAL.HAL_IN)
-        self.pin_mpg_in.value_changed.connect(lambda s: self.external_mpg(s))
+        self.pin_mpg_in = QHAL.newPin('mpg-in',QHAL.HAL_S32, QHAL.HAL_IN)
+        self.pin_mpg_in.pinValueChanged.connect(lambda p,v: self.external_mpg(v))
 
         # dialog answer pins
-        pin = QHAL.newpin("dialog-ok", QHAL.HAL_BIT, QHAL.HAL_IN)
+        pin = QHAL.newPin("dialog-ok", QHAL.HAL_BIT, QHAL.HAL_IN)
         pin.pinValueChanged.connect(lambda p,v: self.dialog_ext_control(p,v,1))
-        pin = QHAL.newpin("dialog-no", QHAL.HAL_BIT, QHAL.HAL_IN)
+        pin = QHAL.newPin("dialog-no", QHAL.HAL_BIT, QHAL.HAL_IN)
         pin.pinValueChanged.connect(lambda p,v: self.dialog_ext_control(p,v,2))
-        pin = QHAL.newpin("dialog-cancel", QHAL.HAL_BIT, QHAL.HAL_IN)
+        pin = QHAL.newPin("dialog-cancel", QHAL.HAL_BIT, QHAL.HAL_IN)
         pin.pinValueChanged.connect(lambda p,v: self.dialog_ext_control(p,v,0))
 
     def init_preferences(self):
@@ -835,12 +839,14 @@ class HandlerClass:
         self.w.btn_home_all.setText(_translate("HandlerClass","HOME\nALL"))
 
     def hard_limit_tripped(self, obj, tripped, list_of_tripped):
-        self.add_status(_translate("HandlerClass","Hard limits tripped"), CRITICAL)
-        self.w.chk_override_limits.setEnabled(tripped)
-        if not tripped:
+        if tripped:
+            self.add_status(_translate("HandlerClass","Hard limits tripped"), CRITICAL)
+            self.w.chk_override_limits.setEnabled(tripped)
+        else:
             self.w.chk_override_limits.setChecked(False)
+            self.add_status(_translate("HandlerClass","Hard Limits Clear"),)
 
-    # keep check button in synch of external changes
+    # keep check button in sync of external changes
     def _check_override_limits(self,state,data):
         if 0 in data:
             self.w.chk_override_limits.setChecked(False)
@@ -852,16 +858,20 @@ class HandlerClass:
             self.w[i].setEnabled(not state)
 
     def add_external_status(self, message, option):
-        level = option.get('LEVEL') or 0
-        log = option.get("LOG") or True
-        title = message.get('TITLE')
-        mess = message.get('SHORTTEXT')
-        logtext = message.get('DETAILS')
+        level = option.get('LEVEL', STATUS.DEFAULT) 
+        log = option.get("LOG", True)
+        title = message.get('TITLE', '')
+        mess = message.get('SHORTTEXT', '')
+        logtext = message.get('DETAILS', '')
 
-        self.add_status(mess,level,False)
-        if noLog:
-            return
-        STATUS.emit('update-machine-log', "{}\n{}".format(title, logtext), 'TIME')
+        self.add_status(mess, level, noLog=True)
+        if log:
+            STATUS.emit('update-machine-log', "{}\n{}".format(title, logtext), 'TIME')
+
+    # Log the last run line (in auto mode) if stopped
+    def lastRunLine(self, line):
+        if line >0:
+            self.add_status('last running line before stoppage: {}'.format(line))
 
     #######################
     # CALLBACKS FROM FORM #
@@ -1100,10 +1110,10 @@ class HandlerClass:
 
     def btn_save_status_clicked(self):
         if self.w.stackedWidget_log.currentIndex():
-            text = self.w.integrator_log.toPlainText()
+            text = self.w.integrator_log.getLogText()
             name = 'sysLog_'
         else:
-            text = self.w.machinelog.toPlainText()
+            text = self.w.machinelog.getLogText()
             name = 'mchnLog_'
         filename = self.w.lbl_clock.text()
         filename = name + filename.replace(' ','_') + '.txt'
@@ -1138,7 +1148,7 @@ class HandlerClass:
 
     # settings tab
     def chk_override_limits_checked(self, state):
-        # only toggle override if it's not in synch with the button
+        # only toggle override if it's not in sync with the button
         if state and not STATUS.is_limits_override_set():
             self.add_status(_translate("HandlerClass","Override limits set"), WARNING)
             ACTION.TOGGLE_LIMITS_OVERRIDE()
@@ -1525,16 +1535,25 @@ class HandlerClass:
             ACTION.JOG(joint, 0, 0, 0)
 
     def add_status(self, message, alertLevel = DEFAULT, noLog = False):
+        opt = 'TIME'
         if alertLevel==DEFAULT:
             self.set_style_default()
+        elif alertLevel==SUCCESS:
+            opt += ',SUCCESS'
+            self.set_style_default()
         elif alertLevel==WARNING:
+            opt += ',WARNING'
+            self.set_style_warning()
+        elif alertLevel==ERROR:
+            opt += ',ERROR'
             self.set_style_warning()
         else:
+            opt += ',CRITICAL'
             self.set_style_critical()
         self.w.lineEdit_statusbar.setText(message)
         if noLog:
             return
-        STATUS.emit('update-machine-log', message, 'TIME')
+        STATUS.emit('update-machine-log', message, opt)
 
     def enable_auto(self, state):
         for widget in self.auto_list:
@@ -1551,9 +1570,12 @@ class HandlerClass:
 
     def enable_onoff(self, state):
         if state:
-            self.add_status(_translate("HandlerClass","Machine ON"))
+            self.add_status(_translate("HandlerClass","Machine ON"), SUCCESS)
         else:
-            self.add_status(_translate("HandlerClass","Machine OFF"))
+            if not STATUS.estop_is_clear():
+                self.add_status(_translate("HandlerClass","ESTOP!"), CRITICAL)
+            else:
+                self.add_status(_translate("HandlerClass","MACHINE OFF"), ERROR)
         self.w.btn_spindle_pause.setChecked(False)
         self.h['eoffset-spindle-count'] = 0
         for widget in self.onoff_list:
@@ -1836,7 +1858,8 @@ class HandlerClass:
 
         # if indexes don't match then request is disallowed
         # give a warning and reset the button check
-        if main_index != requestedIndex and not main_index in(TAB_CAMERA,TAB_GCODES,TAB_SETUP):
+        if main_index != requestedIndex and not main_index in(TAB_CAMERA, TAB_GCODES,
+                TAB_STATUS, TAB_SETUP):
             self.add_status("Cannot switch pages while in AUTO mode", WARNING)
             self.w.stackedWidget_mainTab.setCurrentIndex(0)
             self.w.btn_main.setChecked(True)

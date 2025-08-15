@@ -17,7 +17,8 @@
    02111-1307 USA.
  */
 
-#pragma once
+#ifndef __XHC_WHB04B_6_HAL_H
+#define __XHC_WHB04B_6_HAL_H
 
 // local includes
 #include "pendant-types.h"
@@ -344,7 +345,7 @@ public:
     void init(const MetaButtonCodes* metaButtons, const KeyCodes& codes);
     //! \return true if void init(const MetaButtonCodes*, const KeyCodes&) has been called beforehand,
     //! false otherwise
-    bool isInitialized();
+    bool isInitialized() const { return mIsInitialized; };
     //! \return true if simulation mode is enabled, false otherwise
     bool isSimulationModeEnabled() const;
     //! indicates the program has been invoked in hal mode or normal
@@ -642,3 +643,4 @@ private:
     bool requestMode(bool isRisingEdge, hal_bit_t* requestPin, hal_bit_t* modeFeedbackPin);
 };
 }
+#endif

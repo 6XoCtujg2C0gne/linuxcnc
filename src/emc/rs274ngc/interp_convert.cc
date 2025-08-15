@@ -1818,7 +1818,7 @@ int Interp::convert_axis_offsets(int g_code,     //!< g_code being executed (mus
 
 #define VAL_LEN 30
 
-int Interp::convert_param_comment(char *comment, char *expanded, int len)
+int Interp::convert_param_comment(char *comment, char *expanded, int /*len*/)
 {
     FORCE_LC_NUMERIC_C;
     int i;
@@ -2756,7 +2756,7 @@ Called by: convert_g.
 
 */
 
-int Interp::convert_dwell(setup_pointer settings, double time)   //!< time in seconds to dwell  */
+int Interp::convert_dwell(setup_pointer /*settings*/, double time)   //!< time in seconds to dwell  */
 {
   enqueue_DWELL(time);
   return INTERP_OK;
@@ -2977,7 +2977,7 @@ Saves the absolute coordinates of the current point in parameters 5161-5169
 
 */
 
-int Interp::convert_savehome(int code, block_pointer block, setup_pointer s) {
+int Interp::convert_savehome(int code, block_pointer /*block*/, setup_pointer s) {
     double *p = s->parameters;
 
     if(s->cutter_comp_side != CUTTER_COMP::OFF) {
@@ -3357,7 +3357,7 @@ int Interp::convert_length_units(int g_code,     //!< g_code being executed (mus
  */
 int Interp::gen_settings(
     int *int_current, int *int_saved,            // G-codes
-    double *float_current, double *float_saved,  // S, F, other
+    double * /*float_current*/, double *float_saved,  // S, F, other
     std::string &cmd)                            // command buffer
 {
     FORCE_LC_NUMERIC_C;
@@ -3534,7 +3534,7 @@ int Interp::gen_m_codes(int *current, int *saved, std::string &cmd)
  * motion line, but does not restore M codes.
  */
 int Interp::gen_restore_cmd(int *current_g,
-			    int *current_m,
+			    int * /*current_m*/,
 			    double *current_settings,
 			    StateTag const &saved,
 			    std::string &cmd)
@@ -3652,17 +3652,17 @@ int Interp::restore_settings(setup_pointer settings,
     if (!cmd.empty()) {
 	// the sequence can be multiline, separated by nl
 	// so split and execute each line
-        char buf[cmd.size() + 1];
-        strncpy(buf, cmd.c_str(), sizeof(buf));
-	char *last = buf;
-	char *s;
-	while ((s = strtok_r(last, "\n", &last)) != NULL) {
+	std::string cpy = cmd;
+	char *stateptr = NULL;
+	char *s = strtok_r(cpy.data(), "\n", &stateptr);
+	while (s != NULL) {
 	    int status = execute(s);
 	    if (status != INTERP_OK) {
 		char currentError[LINELEN+1];
 		rtapi_strxcpy(currentError,getSavedError());
 		CHKS(status, _("M7x: restore_settings failed executing: '%s': %s"), s, currentError);
 	    }
+	    s = strtok_r(NULL, "\n", &stateptr);
 	}
 	write_g_codes((block_pointer) NULL, settings);
 	write_m_codes((block_pointer) NULL, settings);
@@ -3721,11 +3721,10 @@ int Interp::restore_from_tag(StateTag const &tag)
     if (!cmd.empty()) {
         // the sequence can be multiline, separated by nl
         // so split and execute each line
-        char buf[cmd.size() + 1];
-        strncpy(buf, cmd.c_str(), sizeof(buf));
-        char *last = buf;
-        char *s;
-        while ((s = strtok_r(last, "\n", &last)) != NULL) {
+        std::string cpy = cmd;
+        char *stateptr = NULL;
+        char *s = strtok_r(cpy.data(), "\n", &stateptr);
+        while (s != NULL) {
             int status = execute(s);
             if (status != INTERP_OK) {
                 char currentError[LINELEN+1];
@@ -3733,6 +3732,7 @@ int Interp::restore_from_tag(StateTag const &tag)
                 CHKS(status, _("Failed to restore interp state on abort "
 			       "'%s': %s"), s, currentError);
             }
+            s = strtok_r(NULL, "\n", &stateptr);
         }
         write_g_codes((block_pointer) NULL, &_setup);
         write_m_codes((block_pointer) NULL, &_setup);

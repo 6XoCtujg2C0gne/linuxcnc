@@ -60,8 +60,8 @@
 HANDLE ThreadHandleClient = NULL;
 DWORD ThreadIdClient;
 #else
-#define SOCK_FD unsigned int
-#define SOCK_INVALID -1
+#define SOCK_FD int
+#define SOCK_INVALID (-1)
 pthread_t thread_socket_client;
 #endif
 
@@ -251,6 +251,7 @@ int SendSocketModbusMaster( char * SlaveAdr, int NumPort, char * Frame, int LgtF
 {
 	int Status = -1;
 	int LgtSend;
+	(void)NumPort;
 	if ( VerifyTcpConnection( SlaveAdr ) )
 	{
 		if( ModbusConfig.ModbusDebugLevel>=2 )

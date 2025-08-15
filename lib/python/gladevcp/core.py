@@ -10,10 +10,10 @@ import hal
 import traceback
 
 from hal_glib import GStat
-from qtvcp.qt_istat import _IStat as IStatParent
+from common.iniinfo import _IStat as IStatParent
 
 # Set up logging
-from qtvcp import logger
+from common import logger
 log = logger.getLogger(__name__)
 # log.setLevel(logger.INFO) # One of DEBUG, INFO, WARNING, ERROR, CRITICAL, VERBOSE
 
@@ -40,7 +40,8 @@ class Status(GStat):
     __gsignals__ = {
         'toolfile-stale': (GObject.SignalFlags.RUN_FIRST, GObject.TYPE_NONE, (GObject.TYPE_PYOBJECT,)),
     }
-    TEMPARARY_MESSAGE = 255
+    TEMPARARY_MESSAGE = 255 # remove in the future
+    TEMPORARY_MESSAGE = 255
     OPERATOR_ERROR = linuxcnc.OPERATOR_ERROR
     OPERATOR_TEXT = linuxcnc.OPERATOR_TEXT
     NML_ERROR = linuxcnc.NML_ERROR

@@ -15,7 +15,7 @@ QtDragon and QtDragon_hd are built with the QtVCP framework.
 It is the creative vision of forum personality Persei8.
 Much of it is based on the excellent work of others in the LinuxCNC community.
 LinuxCNC's version is adapted from Persei8's Github versions.
-It is primarily meant for 3/4 axes machines such as mills or routers.
+It is primarily meant for 3-5 axes machines such as mills or routers.
 It works well with a touchscreen and/or mouse.
 QtDragon supports multiple ways to touch off tools and probing work pieces.
 You can use LinuxCNC's external offsets capability to automatically raise the spindle during a pause.
@@ -28,15 +28,22 @@ Please forward reports to the forum or maillist.
 
 === QtDragon
 
-.QtDragon - 3 or 4 axis sample (1440x860) in silver theme
+.QtDragon - 3 to 5 axis sample (1440x860) in silver theme
 image::images/silverdragon.png["QtDragon Router",scale="25%"]
 
 QtDragon is resizable from a resolution of 1280x768 to 1680x1200.
 It will work in window mode on any monitor with higher resolution but not on monitors with lower resolution.
 
+=== QtDragon_lathe
+image::images/qtdragon_lathe.png["QtDragon Lathe",scale="25%"]
+
+QtDragon_lathe is a modified version of QtDragon more suitable for lathes. +
+It is resizable from a resolution of 1280x768 to 1680x1200. +
+It will work in window mode on any monitor with higher resolution but not on monitors with lower resolution.
+
 === QtDragon_hd
 
-.QtDragon_hd - 3 or 4 axis sample for larger monitors (1920x1056) in dark theme
+.QtDragon_hd - 3 to 5 axis sample for larger monitors (1920x1056) in dark theme
 image::images/qtdragon_hd.png["QtDragon_hd",scale="25%"]
 
 QtDragon_hd is a similar design as QtDragon but modified to utilize the extra space of modern larger monitors.
@@ -44,6 +51,10 @@ There are some small differences in layout and utility.
 
 QtDragon_hd has a resolution of 1920x1056 and is not resizeable.
 It will work in window mode on any monitor with higher resolution but not on monitors with lower resolution.
+
+=== QtDragon_hd_vertical
+
+QtDragon_hd_vertical is a vertical orientated version. It is not resizable.
 
 == Getting Started - The INI File
 
@@ -133,6 +144,19 @@ These increments can be user changed.
 [DISPLAY]
 INCREMENTS = Continuous, .001 mm, .01 mm, .1 mm, 1 mm, 1.0 inch, 0.1 inch, 0.01 inch
 ANGULAR_INCREMENTS = 1, 5, 10, 30, 45, 90, 180, 360
+----
+
+=== Grid Increments
+Set the available optional grid sizes for graphics display. +
+This will override the default sizes. +
+'mm' and 'in' are used to specify units. +
+The grid selection box is shown when clicking the 'OPTN' button 
+on the graphics display.
+
+[source,{ini}]
+----
+[DISPLAY]
+GRIDS = 0, .1 mm, 1 mm, 2 mm, 5 mm, 10 mm, .25 in, .5 in
 ----
 
 === Jog speed
@@ -943,6 +967,17 @@ Sequence after pressing the probe button: +
 . rapid back to starting corner (now calculated using the probed walls),
 . if auto zero button is enabled, set X and Y of the current user system to zero.
 
+=== Customizing Probe Screen Widget
+It is possible to load a customized version of the probe widget. +
+
+There should be a folder in the config folder; for screens: named <CONFIG FOLDER>/qtvcp/. +
+There may be (or can be added) a folder 'lib/' and 'widgets/' +
+In the widgets folder you can copy 'basic_probe.py' (or 'versa_probe.py') and 'probe_subprog.py' +
+In the lib folder copy 'touchoff_subprogram.py' +
+If these files are found they will be used instead of the originals. +
+You can modify the files to change behaviour. +
+
+
 [[sub:touch-plate]]
 == Touch plate
 
@@ -1640,20 +1675,17 @@ To have the manual spindle buttons also incrementally increase/decrease speed:
 
 === Qt Designer and Python code
 
-All aspects of the GUI are fully customization through Qt Designer and/or Python code.
-This capability is included with the QtVCP development environment.
-The extensive use of QtVCP widgets keeps the amount of required Python code to a minimum, allowing relatively easy modifications.
-The LinuxCNC website has extensive documentation on the installation and use of QtVCP libraries.
+All aspects of the GUI are fully customization through Qt Designer and/or Python code. +
+This capability is included with the QtVCP development environment. +
+The extensive use of QtVCP widgets keeps the amount of required Python code to a minimum, allowing relatively easy modifications. +
+The LinuxCNC website has extensive documentation on the installation and use of QtVCP libraries. +
 See <<cha:qtvcp,QtVCP>> for more information about QtVCP in general. +
+Custom modifications can be added by 'subclassing' the handler file. This adds code on top of the original. +
 QtDragon can also utilize QtVCP's rc file to do minor python code modifications without using a custom handler file.
 
-[source,{ini}]
-----
-[DISPLAY]
-USER_COMMAND_FILE = CONFIGFOLDER/qtdragonrc.py
-----
-
 See <<cha:qtvcp:modifying-screens,Modifying Screens>> for more information about customization.
+
+Some widget customization is available for basic probe and versa probe.
 
 .QtDragon - Customized QtDragon
 image::images/silverdragon_custom.png["QtDragon customized",scale=25]

@@ -798,7 +798,7 @@ int hal_pin_new(const char *name, hal_type_t type, hal_pin_dir_t dir,
     memset(&new->dummysig, 0, sizeof(hal_data_u));
     rtapi_snprintf(new->name, sizeof(new->name), "%s", name);
     /* make 'data_ptr' point to dummy signal */
-    *data_ptr_addr = comp->shmem_base + SHMOFF(&(new->dummysig));
+    *data_ptr_addr = (char *)comp->shmem_base + SHMOFF(&(new->dummysig));
     /* search list for 'name' and insert new structure */
     prev = &(hal_data->pin_list_ptr);
     next = *prev;
@@ -1246,7 +1246,7 @@ int hal_link(const char *pin_name, const char *sig_name)
     /* everything is OK, make the new link */
     data_ptr_addr = SHMPTR(pin->data_ptr_addr);
     comp = SHMPTR(pin->owner_ptr);
-    data_addr = comp->shmem_base + sig->data_ptr;
+    data_addr = (char *)comp->shmem_base + sig->data_ptr;
     *data_ptr_addr = data_addr;
 
     /* if the pin is a HAL_PORT the buffer belongs to the signal, port pins not linked
@@ -2109,7 +2109,7 @@ int hal_create_thread(const char *name, unsigned long period_nsec, int uses_fp)
 	    }
 	}
 	/* make sure period <= desired period (allow 1% roundoff error) */
-	if (curr_period > (period_nsec + (period_nsec / 100))) {
+	if (curr_period > (long)(period_nsec + (period_nsec / 100))) {
 	    rtapi_mutex_give(&(hal_data->mutex));
 	    rtapi_print_msg(RTAPI_MSG_ERR,
 		"HAL_LIB: ERROR: clock period too long: %ld\n", curr_period);
@@ -2131,7 +2131,7 @@ int hal_create_thread(const char *name, unsigned long period_nsec, int uses_fp)
 	prev_period = tptr->period;
 	prev_priority = tptr->priority;
     }
-    if ( period_nsec < hal_data->base_period) { 
+    if ( (long)period_nsec < hal_data->base_period) {
 	rtapi_mutex_give(&(hal_data->mutex));
 	rtapi_print_msg(RTAPI_MSG_ERR,
 	    "HAL_LIB: ERROR: new thread period %ld is less than clock period %ld\n",
@@ -3483,7 +3483,7 @@ static void unlink_pin(hal_pin_t * pin)
     /* make pin's 'data_ptr' point to its dummy signal */
     data_ptr_addr = SHMPTR(pin->data_ptr_addr);
     comp = SHMPTR(pin->owner_ptr);
-    dummy_addr = comp->shmem_base + SHMOFF(&(pin->dummysig));
+    dummy_addr = (void *)((char *)comp->shmem_base + SHMOFF(&(pin->dummysig)));
     *data_ptr_addr = dummy_addr;
 
     /* copy current signal value to dummy */
@@ -4111,7 +4111,7 @@ int halpr_parse_types(hal_type_t type[HAL_STREAM_MAX_PINS], const char *cfg)
     return n;
 }
 
-int hal_stream_create(hal_stream_t *stream, int comp, int key, int depth, const char *typestring)
+int hal_stream_create(hal_stream_t *stream, int comp, int key, unsigned depth, const char *typestring)
 {
     int result = 0;
     hal_type_t type[HAL_STREAM_MAX_PINS];
@@ -4144,13 +4144,13 @@ extern void hal_stream_destroy(hal_stream_t *stream)
     hal_stream_detach(stream);
 }
 
-static int hal_stream_advance(hal_stream_t *stream, int n) {
+static unsigned hal_stream_advance(hal_stream_t *stream, unsigned n) {
     n = n + 1;
     if(n >= stream->fifo->depth) n = 0;
     return n;
 }
 
-static int hal_stream_newin(hal_stream_t *stream) {
+static unsigned hal_stream_newin(hal_stream_t *stream) {
     return hal_stream_advance(stream, stream->fifo->in);
 }
 
@@ -4170,7 +4170,7 @@ int hal_stream_depth(hal_stream_t *stream) {
     return result;
 }
 
-int hal_stream_maxdepth(hal_stream_t *stream) {
+unsigned hal_stream_maxdepth(hal_stream_t *stream) {
     return stream->fifo->depth;
 }
 
@@ -4280,7 +4280,7 @@ int hal_stream_attach(hal_stream_t *stream, int comp_id, int key, const char *ty
         }
     }
     /* now use data in fifo structure to calculate proper shmem size */
-    int depth = fifo->depth;
+    unsigned depth = fifo->depth;
     int pin_count = fifo->num_pins;
     size_t size = sizeof(struct hal_stream_shm) + sizeof(union hal_stream_data) * depth * (1+pin_count);
     /* close shmem, re-open with proper size */
