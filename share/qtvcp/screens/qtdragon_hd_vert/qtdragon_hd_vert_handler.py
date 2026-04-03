@@ -469,6 +469,38 @@ class HandlerClass:
         if self.w.stackedWidget_mainTab.count() == 10:
             self.w.btn_user.hide()
 
+        # see if a popup window panels is required
+        self.Btn = None
+        if not INFO.ZIPPED_TABS is None:
+            for name, loc, cmd in INFO.ZIPPED_TABS:
+                if loc =='WINDOW':
+
+                    # add panel to a dialog window
+                    self.w['popup'] = d = QtWidgets.QDialog(self.w)
+                    temp = self.w[name.replace(' ','_')]
+                    # set to apropriate size for panel
+                    d.setMinimumSize(600,400)
+                    d.setWindowTitle(name)
+                    d.setWindowFlags(d.windowFlags() | QtCore.Qt.WindowStaysOnTopHint)
+                    d.finished.connect(self.onClosePopup)
+                    d._lastgeometry = None
+
+                    layout = QtWidgets.QGridLayout(d)
+                    layout.setContentsMargins(0,0,0,0)
+                    layout.addWidget(temp, 0, 0)
+
+                    # add launch button to screen
+                    self.btn = QtWidgets.QPushButton(self.w)
+                    self.btn.setEnabled(True)
+                    self.btn.setMinimumSize(64, 40)
+                    self.btn.setIconSize(QtCore.QSize(38, 38))
+                    self.btn.setIcon(QtGui.QIcon(':/qt-project.org/styles/commonstyle/images/up-32.png'))
+                    self.btn.clicked.connect(self.togglePopup)
+                    self.w.layout_buttonbar.insertWidget(len(self.w.layout_buttonbar) - 1, self.btn)
+
+                    # only one allowed
+                    break
+
     def init_probe(self):
         probe = INFO.get_error_safe_setting('PROBE', 'USE_PROBE', 'none').lower()
         if probe == 'versaprobe':
@@ -919,13 +951,13 @@ class HandlerClass:
 
         if index == TAB_USER:
             pass
-        elif index == self.w.stackedWidget_mainTab.currentIndex():
-            self.w.stackedWidget_dro.setCurrentIndex(0)
-
         if index is None: return
 
         # adjust the stack widgets depending on modes
         self.adjust_stacked_widgets(index)
+
+    def hideVirtualKeyboard(self):
+        self.w.stackedWidget_dro.setCurrentIndex(0)
 
     # gcode frame
     def cmb_gcode_history_clicked(self):
@@ -1607,6 +1639,12 @@ class HandlerClass:
                 rate = rate * 2
             ACTION.JOG(joint, direction, rate, distance)
         else:
+            # incremental jogging?
+            if joint in (3,4,5,'A','B','C'): # angualar axis
+                if STATUS.get_jog_increment_angular() != 0: return
+            elif STATUS.get_jog_increment() != 0: return
+
+            # otherwise stop jogging when key released
             ACTION.JOG(joint, 0, 0, 0)
 
     def add_status(self, message, alertLevel = DEFAULT, noLog = False):
@@ -1868,7 +1906,8 @@ class HandlerClass:
         # show ngcgui info tab if utilities tab is selected
         # but only if the utilities tab has ngcgui selected
         if main_index == TAB_UTILS:
-            if self.w.tabWidget_utilities.currentIndex() == 2:
+            num = self.w.tabWidget_utilities.currentIndex()
+            if 'ngc' in self.w.tabWidget_utilities.tabText(num).lower():
                 self.w.stackedWidget.setCurrentIndex(PAGE_NGCGUI)
             else:
                 self.w.stackedWidget.setCurrentIndex(PAGE_GCODE)
@@ -2104,6 +2143,20 @@ class HandlerClass:
 
         button.pressed.emit()
         button.setProperty('ini_mdi_command_action', False)
+
+    # show/hide a popup window panel (if defined in the INI)
+    def togglePopup(self):
+        if self.w['popup'].isVisible():
+            self.w['popup']._lastgeometry = self.w['popup'].geometry()
+            self.w['popup'].hide()
+        else:
+            self.w['popup'].show()
+            if not self.w['popup']._lastgeometry is None:
+                self.w['popup'].setGeometry(self.w['popup']._lastgeometry)
+
+
+    def onClosePopup(self, *args):
+        self.w['popup']._lastgeometry = self.w['popup'].geometry()
 
     #####################
     # KEY BINDING CALLS #

@@ -30,12 +30,12 @@
 #include <unistd.h>
 #include <signal.h>
 
-#include "hal.h"
-#include "motion.h"
-#include "motion_struct.h"
+#include <hal.h>
+#include "motion/motion.h"
+#include "motion/motion_struct.h"
 #include "motion_types.h"
-#include "mot_priv.h"
-#include "axis.h"
+#include "motion/mot_priv.h"
+#include "motion/axis.h"
 
 static struct motion_logger_data_t {
     hal_bit_t *reopen;
@@ -255,7 +255,7 @@ void log_print(const char *fmt, ...) {
             logfile = fopen(logfile_name, "w");
             if (logfile == NULL) {
                 fprintf(stderr, "error opening %s: %s\n", logfile_name, strerror(errno));
-                exit(1);
+                exit(EXIT_FAILURE);
             }
         }
     }
@@ -276,7 +276,7 @@ int main(int argc, char* argv[]) {
         logfile_name = argv[1];
     } else {
         fprintf(stderr, "usage: motion-logger [LOGFILE]\n");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
     signal(SIGINT,  sighandler); // ^C interrupt
@@ -288,28 +288,33 @@ int main(int argc, char* argv[]) {
 
     if((mot_comp_id = hal_init("motion-logger")) < 0) {
         fprintf(stderr, "motion-logger: failed to init hal.\n");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     if(!(motion_logger_data = hal_malloc(sizeof(*motion_logger_data)))) {
         hal_exit(mot_comp_id);
         fprintf(stderr, "motion-logger: failed to allocate hal memory.\n");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     int r;
     if((r = hal_pin_bit_new("motion-logger.reopen-log", HAL_IO, &motion_logger_data->reopen, mot_comp_id)) < 0) {
         hal_exit(mot_comp_id);
         errno = -r;
         perror("hal_pin_bit_new");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     *motion_logger_data->reopen = 0;
     if((r = hal_ready(mot_comp_id)) < 0) {
         hal_exit(mot_comp_id);
         errno = -r;
         perror("hal_ready");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
-    init_comm_buffers();
+    
+    r = init_comm_buffers();
+    if (r) {
+        fprintf(stderr,"init_comm_buffer init failure\n");
+        exit(EXIT_FAILURE);
+    }
 
     while (!quit) {
         rtapi_mutex_get(&emcmotStruct->command_mutex);
@@ -529,6 +534,10 @@ int main(int argc, char* argv[]) {
                 axis_set_locking_joint(c->axis, c->joint);
                 break;
 
+            case EMCMOT_SET_AXIS_JERK_LIMIT:
+                log_print("SET_AXIS_JERK_LIMIT axis=%d, jerk=%.6g\n", c->axis, c->jerk);
+                break;
+
             case EMCMOT_SET_JOINT_BACKLASH:
                 log_print("SET_JOINT_BACKLASH joint=%d, backlash=%.6g\n", c->joint, c->backlash);
                 break;
@@ -569,6 +578,14 @@ int main(int argc, char* argv[]) {
                 log_print("SET_ACC acc=%.6g\n", c->acc);
                 break;
 
+            case EMCMOT_SET_JERK:
+                log_print("SET_JERK jerk=%.6g\n", c->jerk);
+                break;
+
+            case EMCMOT_SET_PLANNER_TYPE:
+                log_print("SET_PLANNER_TYPE planner_type=%d\n", c->planner_type);
+                break;
+
             case EMCMOT_SET_TERM_COND:
                 log_print("SET_TERM_COND termCond=%d, tolerance=%.6g\n", c->termCond, c->tolerance);
                 break;
@@ -599,6 +616,10 @@ int main(int argc, char* argv[]) {
                     c->search_vel, c->latch_vel, c->flags,
                     c->home_sequence, c->volatile_home
                 );
+                break;
+
+            case EMCMOT_SET_JOINT_JERK_LIMIT:
+                log_print("SET_JOINT_JERK_LIMIT joint=%d, jerk=%.6g\n", c->joint, c->jerk);
                 break;
 
             case EMCMOT_UPDATE_JOINT_HOMING_PARAMS:

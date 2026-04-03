@@ -384,9 +384,9 @@ void XhcWhb04b6Component::printInputData(const UsbInPackage& inPackage, std::ost
     out << " | ";
     printPushButtonText(inPackage.buttonKeyCode2, inPackage.buttonKeyCode1, out);
     out << " | ";
-    printRotaryButtonText((KeyCode*)&mKeyCodes.Feed, inPackage.rotaryButtonFeedKeyCode, out);
+    printRotaryButtonText(reinterpret_cast<const KeyCode*>(&mKeyCodes.Feed), inPackage.rotaryButtonFeedKeyCode, out);
     out << " | ";
-    printRotaryButtonText((KeyCode*)&mKeyCodes.Axis, inPackage.rotaryButtonAxisKeyCode, out);
+    printRotaryButtonText(reinterpret_cast<const KeyCode*>(&mKeyCodes.Axis), inPackage.rotaryButtonAxisKeyCode, out);
     out << " | " << std::setfill(' ') << std::setw(3) << static_cast<short>(inPackage.stepCount) << " | " << std::hex
         << std::setfill('0')
         << std::setw(2) << static_cast<unsigned short>(inPackage.crc);
@@ -617,6 +617,11 @@ void XhcWhb04b6Component::printHexdump(const UsbInPackage& inPackage)
 void XhcWhb04b6Component::setWaitWithTimeout(uint8_t waitSecs)
 {
     mUsb.setWaitWithTimeout(waitSecs);
+}
+// ----------------------------------------------------------------------
+void XhcWhb04b6Component::setUsbProductId(uint16_t usbProductId)
+{
+    mUsb.setUsbProductId(usbProductId);
 }
 // ----------------------------------------------------------------------
 bool XhcWhb04b6Component::isSimulationModeEnabled() const
